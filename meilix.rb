@@ -5,7 +5,7 @@ class Meilix < Formula
   homepage "https://github.com/johnoppenheimer/meilix"
   # Point at the crates.io tarball (or a GitHub release tarball).
   url "https://static.crates.io/crates/meilix/meilix-0.1.0.crate"
-  sha256 "REPLACE_WITH_SHA256_OF_TARBALL"
+  sha256 "f028eabfd615601bb2df5e2c8444387405dc705d1f1618ac8bd9f0eb124446db"
   license "MIT"
 
   depends_on "rust" => :build
