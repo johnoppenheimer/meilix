@@ -70,7 +70,13 @@ async fn main() -> color_eyre::Result<()> {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
                     handle_key(
-                        key.code, &client, &url, &key_opt, &mut model, &tx, &mut pending_search,
+                        key.code,
+                        &client,
+                        &url,
+                        &key_opt,
+                        &mut model,
+                        &tx,
+                        &mut pending_search,
                     );
                 }
             }
