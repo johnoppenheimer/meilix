@@ -218,12 +218,10 @@ fn handle_docs_key(
                 fire_documents(client, model, tx);
             }
         }
-        KeyCode::Char('p') => {
-            if model.page > 0 {
-                model.page -= 1;
-                model.doc_sel = 0;
-                fire_documents(client, model, tx);
-            }
+        KeyCode::Char('p') if model.page > 0 => {
+            model.page -= 1;
+            model.doc_sel = 0;
+            fire_documents(client, model, tx);
         }
         _ => {}
     }
