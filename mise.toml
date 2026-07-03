@@ -2,16 +2,21 @@
 rust = "1.96"
 
 [tasks.build]
+description = "Compile the binary"
 run = "cargo build"
 
 [tasks.run]
+description = "Build and launch the TUI (pass args after --)"
 run = "cargo run --"
 
 [tasks.test]
+description = "Run unit tests"
 run = "cargo test"
 
 [tasks.fmt]
+description = "Format the code"
 run = "cargo fmt"
 
 [tasks.check]
+description = "CI gate: format check, lint, test"
 run = ["cargo fmt --check", "cargo clippy -- -D warnings", "cargo test"]
