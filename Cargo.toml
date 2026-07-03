@@ -2,6 +2,10 @@
 name = "meilix"
 version = "0.1.0"
 edition = "2021"
+description = "A terminal UI to manage Meilisearch indexes"
+license = "MIT"
+repository = "https://github.com/johnoppenheimer/meilix"
+readme = "README.md"
 
 [dependencies]
 ratatui = "0.30"
