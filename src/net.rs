@@ -11,10 +11,35 @@ fn one_line(v: &serde_json::Value) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "<unserializable>".into())
 }
 
+/// Minimal, tolerant view of `GET /stats`. We only need document counts, so we
+/// ignore every other field — this survives server versions that omit or add
+/// fields the SDK's strict `IndexStats` would reject (e.g. numberOfEmbeddedDocuments).
+// ponytail: hand-rolled /stats to dodge SDK/server field drift; drop it and use
+// client.get_stats() once the SDK version matches the server.
+#[derive(serde::Deserialize)]
+struct StatsResponse {
+    indexes: HashMap<String, IndexStat>,
+}
+
+#[derive(serde::Deserialize)]
+struct IndexStat {
+    #[serde(rename = "numberOfDocuments")]
+    number_of_documents: usize,
+}
+
 /// Fetch stats for all indexes -> index rows with counts.
-pub fn load_indexes(client: Client, tx: UnboundedSender<AppEvent>) {
+pub fn load_indexes(url: String, key: Option<String>, tx: UnboundedSender<AppEvent>) {
     tokio::spawn(async move {
-        match client.get_stats().await {
+        let mut req = reqwest::Client::new().get(format!("{}/stats", url.trim_end_matches('/')));
+        if let Some(k) = key {
+            req = req.bearer_auth(k);
+        }
+        let result = async {
+            let resp = req.send().await?.error_for_status()?;
+            resp.json::<StatsResponse>().await
+        }
+        .await;
+        match result {
             Ok(stats) => {
                 let map: HashMap<String, usize> = stats
                     .indexes
@@ -31,14 +56,20 @@ pub fn load_indexes(client: Client, tx: UnboundedSender<AppEvent>) {
 }
 
 /// Create an index, wait for the task to finish, then refresh the index list.
-pub fn create_index(client: Client, uid: String, tx: UnboundedSender<AppEvent>) {
+pub fn create_index(
+    client: Client,
+    url: String,
+    key: Option<String>,
+    uid: String,
+    tx: UnboundedSender<AppEvent>,
+) {
     tokio::spawn(async move {
         let _ = tx.send(AppEvent::Status(format!("creating '{uid}'…")));
         match client.create_index(&uid, None).await {
             Ok(task) => match task.wait_for_completion(&client, None, None).await {
                 Ok(_) => {
                     let _ = tx.send(AppEvent::Status(format!("created '{uid}'")));
-                    load_indexes(client, tx);
+                    load_indexes(url, key, tx);
                 }
                 Err(e) => {
                     let _ = tx.send(AppEvent::Error(e.to_string()));

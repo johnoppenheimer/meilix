@@ -36,6 +36,8 @@ const SEARCH_DEBOUNCE: Duration = Duration::from_millis(200);
 async fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
     let cli = Cli::parse();
+    let url = cli.url.clone();
+    let key_opt = cli.key.clone();
     let client = Client::new(cli.url, cli.key)?;
 
     install_panic_hook();
@@ -43,7 +45,7 @@ async fn main() -> color_eyre::Result<()> {
 
     let (tx, mut rx) = mpsc::unbounded_channel::<AppEvent>();
     let mut model = Model::new();
-    net::load_indexes(client.clone(), tx.clone());
+    net::load_indexes(url.clone(), key_opt.clone(), tx.clone());
 
     // Debounce bookkeeping for search-as-you-type.
     let mut pending_search: Option<Instant> = None;
@@ -67,7 +69,9 @@ async fn main() -> color_eyre::Result<()> {
         if event::poll(Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
-                    handle_key(key.code, &client, &mut model, &tx, &mut pending_search);
+                    handle_key(
+                        key.code, &client, &url, &key_opt, &mut model, &tx, &mut pending_search,
+                    );
                 }
             }
         }
@@ -99,6 +103,8 @@ fn fire_documents(client: &Client, model: &mut Model, tx: &UnboundedSender<AppEv
 fn handle_key(
     code: KeyCode,
     client: &Client,
+    url: &str,
+    key: &Option<String>,
     model: &mut Model,
     tx: &UnboundedSender<AppEvent>,
     pending_search: &mut Option<Instant>,
@@ -114,7 +120,13 @@ fn handle_key(
                 model.input.clear();
                 model.mode = Mode::Normal;
                 if !uid.is_empty() {
-                    net::create_index(client.clone(), uid, tx.clone());
+                    net::create_index(
+                        client.clone(),
+                        url.to_string(),
+                        key.clone(),
+                        uid,
+                        tx.clone(),
+                    );
                 }
             }
             KeyCode::Backspace => {
@@ -145,7 +157,7 @@ fn handle_key(
             _ => {}
         },
         Mode::Normal => match model.screen {
-            Screen::IndexList => handle_index_key(code, client, model, tx),
+            Screen::IndexList => handle_index_key(code, client, url, key, model, tx),
             Screen::Documents => handle_docs_key(code, client, model, tx),
         },
     }
@@ -154,12 +166,14 @@ fn handle_key(
 fn handle_index_key(
     code: KeyCode,
     client: &Client,
+    url: &str,
+    key: &Option<String>,
     model: &mut Model,
     tx: &UnboundedSender<AppEvent>,
 ) {
     match code {
         KeyCode::Char('q') => model.running = false,
-        KeyCode::Char('r') => net::load_indexes(client.clone(), tx.clone()),
+        KeyCode::Char('r') => net::load_indexes(url.to_string(), key.clone(), tx.clone()),
         KeyCode::Char('c') => {
             model.mode = Mode::CreateInput;
             model.input.clear();
