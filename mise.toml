@@ -20,3 +20,15 @@ run = "cargo fmt"
 [tasks.check]
 description = "CI gate: format check, lint, test"
 run = ["cargo fmt --check", "cargo clippy -- -D warnings", "cargo test"]
+
+[tasks.publish]
+description = "Verify then publish to crates.io (needs `cargo login` first)"
+depends = ["check"]
+run = "cargo publish"
+
+[tasks.brew-sha]
+description = "Print the sha256 for the published crate tarball (for meilix.rb)"
+run = '''
+ver=$(cargo pkgid | sed 's/.*[#@]//')
+curl -sL "https://static.crates.io/crates/meilix/meilix-${ver}.crate" | shasum -a 256
+'''
